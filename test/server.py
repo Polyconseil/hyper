@@ -42,12 +42,14 @@ class SocketServerThread(threading.Thread):
                  host='localhost',
                  ready_event=None,
                  h2=True,
-                 secure=True):
+                 secure=True,
+                 secure_auto_wrap_socket=True):
         threading.Thread.__init__(self)
 
         self.socket_handler = socket_handler
         self.host = host
         self.secure = secure
+        self.secure_auto_wrap_socket = secure_auto_wrap_socket
         self.ready_event = ready_event
         self.daemon = True
 
@@ -63,8 +65,8 @@ class SocketServerThread(threading.Thread):
         if sys.platform != 'win32':
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-        if self.secure:
-            sock = self.cxt.wrap_socket(sock, server_side=True)
+        if self.secure and self.secure_auto_wrap_socket:
+            sock = self._wrap_socket(sock)
         sock.bind((self.host, 0))
         self.port = sock.getsockname()[1]
 
@@ -78,7 +80,7 @@ class SocketServerThread(threading.Thread):
         sock.close()
 
     def _wrap_socket(self, sock):
-        raise NotImplementedError()
+        return self.cxt.wrap_socket(sock, server_side=True)
 
     def run(self):
         self.server = self._start_server()
@@ -89,11 +91,12 @@ class SocketLevelTest(object):
     A test-class that defines a few helper methods for running socket-level
     tests.
     """
-    def set_up(self, secure=True, proxy=False):
+    def set_up(self, secure=True, proxy=False, secure_auto_wrap_socket=True):
         self.host = None
         self.port = None
-        self.secure = secure if not proxy else False
+        self.secure = secure
         self.proxy = proxy
+        self.secure_auto_wrap_socket = secure_auto_wrap_socket
         self.server_thread = None
 
     def _start_server(self, socket_handler):
@@ -105,7 +108,8 @@ class SocketLevelTest(object):
             socket_handler=socket_handler,
             ready_event=ready_event,
             h2=self.h2,
-            secure=self.secure
+            secure=self.secure,
+            secure_auto_wrap_socket=self.secure_auto_wrap_socket
         )
         self.server_thread.start()
         ready_event.wait()
