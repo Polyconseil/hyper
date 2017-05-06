@@ -1291,3 +1291,57 @@ class TestRequestsAdapter(SocketLevelTest):
 
         recv_event.set()
         self.tear_down()
+
+    def test_adapter_uses_proxies(self):
+        self.set_up(secure=True, secure_auto_wrap_socket=False, proxy=True)
+
+        send_event = threading.Event()
+
+        def socket_handler(listener):
+            sock = listener.accept()[0]
+
+            # Read the CONNECT reader
+            connect_data = b''
+            while not connect_data.endswith(b'\r\n\r\n'):
+                connect_data += sock.recv(65535)
+
+            sock.send(b'HTTP/1.0 200 Connection established\r\n\r\n')
+
+            # todo make this less ugly?
+            sock = self.server_thread._wrap_socket(sock)
+
+            # We should get the initial request.
+            data = b''
+            while not data.endswith(b'\r\n\r\n'):
+                data += sock.recv(65535)
+
+            send_event.wait()
+
+            # We need to send back a response.
+            resp = (
+                b'HTTP/1.1 201 No Content\r\n'
+                b'Server: socket-level-server\r\n'
+                b'Content-Length: 0\r\n'
+                b'Connection: close\r\n'
+                b'\r\n'
+            )
+            sock.send(resp)
+
+            sock.close()
+
+        self._start_server(socket_handler)
+        s = requests.Session()
+        s.proxies = {'all': 'http://%s:%s' % (self.host, self.port)}
+        s.mount('https://', HTTP20Adapter())
+        send_event.set()
+        r = s.get('https://foobar/')
+
+        assert r.status_code == 201
+        assert len(r.headers) == 3
+        assert r.headers[b'server'] == b'socket-level-server'
+        assert r.headers[b'content-length'] == b'0'
+        assert r.headers[b'connection'] == b'close'
+
+        assert r.content == b''
+
+        self.tear_down()
