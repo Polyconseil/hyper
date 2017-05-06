@@ -9,7 +9,9 @@ try:
     from requests.adapters import HTTPAdapter
     from requests.models import Response
     from requests.structures import CaseInsensitiveDict
-    from requests.utils import get_encoding_from_headers
+    from requests.utils import (
+        get_encoding_from_headers, select_proxy, prepend_scheme_if_needed
+    )
     from requests.cookies import extract_cookies_to_jar
 except ImportError:  # pragma: no cover
     HTTPAdapter = object
@@ -29,11 +31,18 @@ class HTTP20Adapter(HTTPAdapter):
         #: A mapping between HTTP netlocs and ``HTTP20Connection`` objects.
         self.connections = {}
 
-    def get_connection(self, host, port, scheme, cert=None):
+    def get_connection(self, host, port, scheme, cert=None, proxies=None):
         """
         Gets an appropriate HTTP/2 connection object based on
         host/port/scheme/cert tuples.
         """
+        # TODO take custom request ports into account
+        proxy = select_proxy("%s://%s" % (scheme, host), proxies)
+
+        if proxy:
+            proxy = prepend_scheme_if_needed(proxy, 'http')
+            proxy = urlparse(proxy).netloc
+
         secure = (scheme == 'https')
 
         if port is None:  # pragma: no cover
@@ -43,19 +52,21 @@ class HTTP20Adapter(HTTPAdapter):
         if cert is not None:
             ssl_context = init_context(cert=cert)
 
+        connection_key = (host, port, scheme, cert, proxy)
         try:
-            conn = self.connections[(host, port, scheme, cert)]
+            conn = self.connections[connection_key]
         except KeyError:
             conn = HTTPConnection(
                 host,
                 port,
                 secure=secure,
-                ssl_context=ssl_context)
-            self.connections[(host, port, scheme, cert)] = conn
+                ssl_context=ssl_context,
+                proxy_host=proxy)
+            self.connections[connection_key] = conn
 
         return conn
 
-    def send(self, request, stream=False, cert=None, **kwargs):
+    def send(self, request, stream=False, cert=None, proxies=None, **kwargs):
         """
         Sends a HTTP message to the server.
         """
@@ -64,7 +75,8 @@ class HTTP20Adapter(HTTPAdapter):
             parsed.hostname,
             parsed.port,
             parsed.scheme,
-            cert=cert)
+            cert=cert,
+            proxies=proxies)
 
         # Build the selector.
         selector = parsed.path
