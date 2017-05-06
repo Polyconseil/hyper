@@ -21,7 +21,7 @@ from ..common.bufsocket import BufferedSocket
 from ..common.exceptions import TLSUpgrade, HTTPUpgrade
 from ..common.headers import HTTPHeaderMap
 from ..common.util import to_bytestring, to_host_port_tuple, HTTPVersion
-from ..compat import bytes
+from ..compat import bytes, HTTPConnection
 
 # We prefer pycohttpparser to the pure-Python interpretation
 try:  # pragma: no cover
@@ -113,19 +113,23 @@ class HTTP11Connection(object):
         :returns: Nothing.
         """
         if self._sock is None:
-            if not self.proxy_host:
-                host = self.host
-                port = self.port
-            else:
-                host = self.proxy_host
-                port = self.proxy_port
 
-            sock = socket.create_connection((host, port), 5)
+            if self.proxy_host and self.secure:
+                # http CONNECT proxy
+                sock = self._proxy_connect(self.host, self.port)
+            else:
+                if self.proxy_host:
+                    # simple http proxy
+                    host = self.proxy_host
+                    port = self.proxy_port
+                else:
+                    host = self.host
+                    port = self.port
+                sock = socket.create_connection((host, port), 5)
             proto = None
 
             if self.secure:
-                assert not self.proxy_host, "Proxy with HTTPS not supported."
-                sock, proto = wrap_socket(sock, host, self.ssl_context)
+                sock, proto = wrap_socket(sock, self.host, self.ssl_context)
 
             log.debug("Selected protocol: %s", proto)
             sock = BufferedSocket(sock, self.network_buffer_size)
@@ -136,6 +140,13 @@ class HTTP11Connection(object):
             self._sock = sock
 
         return
+
+    def _proxy_connect(self, host, port):
+        # Send `CONNECT host:port HTTP/1.0` header
+        conn = HTTPConnection(self.proxy_host, self.proxy_port)
+        conn.set_tunnel(host, port)
+        conn.connect()
+        return conn.sock
 
     def request(self, method, url, body=None, headers=None):
         """

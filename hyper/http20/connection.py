@@ -17,7 +17,7 @@ from ..common.headers import HTTPHeaderMap
 from ..common.util import (
     to_host_port_tuple, to_native_string, to_bytestring, HTTPVersion
 )
-from ..compat import unicode, bytes
+from ..compat import unicode, bytes, HTTPConnection
 from .stream import Stream
 from .response import HTTP20Response, HTTP20Push
 from .window import FlowControlManager
@@ -360,18 +360,21 @@ class HTTP20Connection(object):
             if self._sock is not None:
                 return
 
-            if not self.proxy_host:
-                host = self.host
-                port = self.port
+            if self.proxy_host and self.secure:
+                # http CONNECT proxy
+                sock = self._proxy_connect(self.host, self.port)
             else:
-                host = self.proxy_host
-                port = self.proxy_port
-
-            sock = socket.create_connection((host, port))
+                if self.proxy_host:
+                    # simple http proxy
+                    host = self.proxy_host
+                    port = self.proxy_port
+                else:
+                    host = self.host
+                    port = self.port
+                sock = socket.create_connection((host, port))
 
             if self.secure:
-                assert not self.proxy_host, "Proxy with HTTPS not supported."
-                sock, proto = wrap_socket(sock, host, self.ssl_context,
+                sock, proto = wrap_socket(sock, self.host, self.ssl_context,
                                           force_proto=self.force_proto)
             else:
                 proto = H2C_PROTOCOL
@@ -385,6 +388,13 @@ class HTTP20Connection(object):
             self._sock = BufferedSocket(sock, self.network_buffer_size)
 
             self._send_preamble()
+
+    def _proxy_connect(self, host, port):
+        # Send `CONNECT host:port HTTP/1.0` header
+        conn = HTTPConnection(self.proxy_host, self.proxy_port)
+        conn.set_tunnel(host, port)
+        conn.connect()
+        return conn.sock
 
     def _connect_upgrade(self, sock):
         """
