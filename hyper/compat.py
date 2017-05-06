@@ -39,7 +39,6 @@ if is_py2:
     from urllib import urlencode
     from urlparse import urlparse, urlsplit
     from itertools import imap
-    from httplib import HTTPConnection
 
     def to_byte(char):
         return ord(char)
@@ -61,7 +60,6 @@ if is_py2:
 
 elif is_py3:
     from urllib.parse import urlencode, urlparse, urlsplit
-    from http.client import HTTPConnection
 
     imap = map
 

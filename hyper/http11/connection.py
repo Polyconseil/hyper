@@ -18,10 +18,12 @@ from hyperframe.frame import SettingsFrame
 from .response import HTTP11Response
 from ..tls import wrap_socket, H2C_PROTOCOL
 from ..common.bufsocket import BufferedSocket
-from ..common.exceptions import TLSUpgrade, HTTPUpgrade
+from ..common.exceptions import TLSUpgrade, HTTPUpgrade, ProxyError
 from ..common.headers import HTTPHeaderMap
-from ..common.util import to_bytestring, to_host_port_tuple, HTTPVersion
-from ..compat import bytes, HTTPConnection
+from ..common.util import (
+    to_bytestring, to_host_port_tuple, to_native_string, HTTPVersion
+)
+from ..compat import bytes
 
 # We prefer pycohttpparser to the pure-Python interpretation
 try:  # pragma: no cover
@@ -116,7 +118,8 @@ class HTTP11Connection(object):
 
             if self.proxy_host and self.secure:
                 # http CONNECT proxy
-                sock = self._proxy_connect(self.host, self.port)
+                sock = HTTP11Connection._create_tunnel(
+                    self.proxy_host, self.proxy_port, self.host, self.port)
             else:
                 if self.proxy_host:
                     # simple http proxy
@@ -141,12 +144,32 @@ class HTTP11Connection(object):
 
         return
 
-    def _proxy_connect(self, host, port):
-        # Send `CONNECT host:port HTTP/1.0` header
-        conn = HTTPConnection(self.proxy_host, self.proxy_port)
-        conn.set_tunnel(host, port)
+    @classmethod
+    def _create_tunnel(cls, proxy_host, proxy_port, target_host, target_port):
+        """
+        Sends CONNECT method to a proxy and returns a socket with established
+        connection to the target.
+        
+        :returns: socket
+        """
+        conn = cls(proxy_host, proxy_port)
         conn.connect()
-        return conn.sock
+        conn._send_headers(to_bytestring('CONNECT'),
+                           to_bytestring('%s:%d' % (target_host, target_port)),
+                           # TODO proxy-authorization headers
+                           headers=HTTPHeaderMap())
+
+        response = None
+        while response is None:
+            # 'encourage' the socket to receive data.
+            conn._sock.fill()
+            response = conn.parser.parse_response(conn._sock.buffer)
+        conn._sock.advance_buffer(response.consumed)
+
+        if response.status != 200:
+            raise ProxyError("Tunnel connection failed: %d %s" % (
+                response.status, to_native_string(response.msg.tobytes())))
+        return conn._sock
 
     def request(self, method, url, body=None, headers=None):
         """
@@ -170,7 +193,7 @@ class HTTP11Connection(object):
         method = to_bytestring(method)
 
         if self.proxy_host and not self.secure:
-            port_part = ':%i' % self.port if self.port != 80 else ''
+            port_part = ':%d' % self.port if self.port != 80 else ''
             url = 'http://%s%s%s' % (self.host, port_part, url)
         url = to_bytestring(url)
 

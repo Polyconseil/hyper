@@ -17,7 +17,8 @@ from ..common.headers import HTTPHeaderMap
 from ..common.util import (
     to_host_port_tuple, to_native_string, to_bytestring, HTTPVersion
 )
-from ..compat import unicode, bytes, HTTPConnection
+from ..compat import unicode, bytes
+from ..http11.connection import HTTP11Connection
 from .stream import Stream
 from .response import HTTP20Response, HTTP20Push
 from .window import FlowControlManager
@@ -362,7 +363,8 @@ class HTTP20Connection(object):
 
             if self.proxy_host and self.secure:
                 # http CONNECT proxy
-                sock = self._proxy_connect(self.host, self.port)
+                sock = HTTP11Connection._create_tunnel(
+                    self.proxy_host, self.proxy_port, self.host, self.port)
             else:
                 if self.proxy_host:
                     # simple http proxy
@@ -388,13 +390,6 @@ class HTTP20Connection(object):
             self._sock = BufferedSocket(sock, self.network_buffer_size)
 
             self._send_preamble()
-
-    def _proxy_connect(self, host, port):
-        # Send `CONNECT host:port HTTP/1.0` header
-        conn = HTTPConnection(self.proxy_host, self.proxy_port)
-        conn.set_tunnel(host, port)
-        conn.connect()
-        return conn.sock
 
     def _connect_upgrade(self, sock):
         """
