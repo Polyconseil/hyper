@@ -149,7 +149,7 @@ class HTTP11Connection(object):
         """
         Sends CONNECT method to a proxy and returns a socket with established
         connection to the target.
-        
+
         :returns: socket
         """
         conn = cls(proxy_host, proxy_port)
