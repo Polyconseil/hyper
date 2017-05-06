@@ -17,6 +17,7 @@ from mock import patch
 from h2.frame_buffer import FrameBuffer
 from hyper.compat import ssl
 from hyper.contrib import HTTP20Adapter
+from hyper.common.exceptions import ProxyError
 from hyper.common.util import HTTPVersion
 from hyperframe.frame import (
     Frame, SettingsFrame, WindowUpdateFrame, DataFrame, HeadersFrame,
@@ -730,6 +731,36 @@ class TestHyperIntegration(SocketLevelTest):
         assert r.headers[b'content-type'] == [b'not/real']
 
         assert r.read() == b'thisisaproxy'
+
+        recv_event.set()
+        self.tear_down()
+
+    def test_failing_proxy_tunnel(self):
+        self.set_up(secure=True, secure_auto_wrap_socket=False, proxy=True)
+
+        recv_event = threading.Event()
+
+        def socket_handler(listener):
+            sock = listener.accept()[0]
+
+            # Read the CONNECT reader
+            connect_data = b''
+            while not connect_data.endswith(b'\r\n\r\n'):
+                connect_data += sock.recv(65535)
+
+            sock.send(b'HTTP/1.0 407 Proxy Authentication Required\r\n\r\n')
+
+            recv_event.wait(5)
+            sock.close()
+
+        self._start_server(socket_handler)
+        conn = self.get_connection()
+
+        with pytest.raises(ProxyError):
+            conn.connect()
+
+        # Confirm the connection is closed.
+        assert conn._sock is None
 
         recv_event.set()
         self.tear_down()

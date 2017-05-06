@@ -71,3 +71,10 @@ class MissingCertFile(Exception):
     The certificate file could not be found.
     """
     pass
+
+
+class ProxyError(Exception):
+    """
+    An error occurred during connection to a proxy.
+    """
+    pass
