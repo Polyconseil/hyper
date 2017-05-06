@@ -157,6 +157,10 @@ class HTTP11Connection(object):
         headers = headers or {}
 
         method = to_bytestring(method)
+
+        if self.proxy_host and not self.secure:
+            port_part = ':%i' % self.port if self.port != 80 else ''
+            url = 'http://%s%s%s' % (self.host, port_part, url)
         url = to_bytestring(url)
 
         if not isinstance(headers, HTTPHeaderMap):
