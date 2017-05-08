@@ -119,13 +119,12 @@ class HTTP20Connection(object):
         self.ssl_context = ssl_context
 
         # Setup proxy details if applicable.
-        if proxy_host:
-            if proxy_port is None:
-                self.proxy_host, self.proxy_port = to_host_port_tuple(
-                    proxy_host, default_port=8080
-                )
-            else:
-                self.proxy_host, self.proxy_port = proxy_host, proxy_port
+        if proxy_host and proxy_port is None:
+            self.proxy_host, self.proxy_port = to_host_port_tuple(
+                proxy_host, default_port=8080
+            )
+        elif proxy_host and proxy_port is not None:
+            self.proxy_host, self.proxy_port = proxy_host, proxy_port
         else:
             self.proxy_host = None
             self.proxy_port = None
@@ -365,15 +364,12 @@ class HTTP20Connection(object):
                 # http CONNECT proxy
                 sock = HTTP11Connection._create_tunnel(
                     self.proxy_host, self.proxy_port, self.host, self.port)
+            elif self.proxy_host:
+                # simple http proxy
+                sock = socket.create_connection((self.proxy_host,
+                                                 self.proxy_port))
             else:
-                if self.proxy_host:
-                    # simple http proxy
-                    host = self.proxy_host
-                    port = self.proxy_port
-                else:
-                    host = self.host
-                    port = self.port
-                sock = socket.create_connection((host, port))
+                sock = socket.create_connection((self.host, self.port))
 
             if self.secure:
                 sock, proto = wrap_socket(sock, self.host, self.ssl_context,
