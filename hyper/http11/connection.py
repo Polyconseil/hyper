@@ -82,6 +82,10 @@ class HTTP11Connection(object):
         self._send_http_upgrade = not self.secure
         self._enable_push = kwargs.get('enable_push')
 
+        # CONNECT request (to create a tunnel via proxy) has a few special
+        # cases which needs to be processed differently.
+        self._is_connect_request = False
+
         self.ssl_context = ssl_context
         self._sock = None
 
@@ -181,7 +185,7 @@ class HTTP11Connection(object):
         if self._sock is None:
             self.connect()
 
-        if self._send_http_upgrade:
+        if not self._is_connect_request and self._send_http_upgrade:
             self._add_upgrade_headers(headers)
             self._send_http_upgrade = False
 
@@ -189,7 +193,7 @@ class HTTP11Connection(object):
         if body:
             body_type = self._add_body_headers(headers, body)
 
-        if b'host' not in headers:
+        if not self._is_connect_request and b'host' not in headers:
             headers[b'host'] = self.host
 
         # Begin by emitting the header block.
@@ -231,7 +235,8 @@ class HTTP11Connection(object):
         # https://github.com/Lukasa/hyper/issues/312.
         # Connection options are case-insensitive, while upgrade tokens are
         # case-sensitive: https://github.com/httpwg/http11bis/issues/8.
-        if (response.status == 101 and
+        if (not self._is_connect_request and
+                response.status == 101 and
                 b'upgrade' in map(bytes.lower, headers['connection']) and
                 H2C_PROTOCOL.encode('utf-8') in headers['upgrade']):
             raise HTTPUpgrade(H2C_PROTOCOL, self._sock)
@@ -241,7 +246,8 @@ class HTTP11Connection(object):
             response.msg.tobytes(),
             headers,
             self._sock,
-            self
+            self,
+            self._is_connect_request
         )
 
     def _send_headers(self, method, url, headers):
@@ -411,7 +417,8 @@ class HTTP11Connection(object):
         return False  # Never swallow exceptions.
 
 
-def _create_tunnel(proxy_host, proxy_port, target_host, target_port):
+def _create_tunnel(proxy_host, proxy_port, target_host, target_port,
+                   proxy_headers=None):
     """
     Sends CONNECT method to a proxy and returns a socket with established
     connection to the target.
@@ -419,20 +426,12 @@ def _create_tunnel(proxy_host, proxy_port, target_host, target_port):
     :returns: socket
     """
     conn = HTTP11Connection(proxy_host, proxy_port)
-    conn.connect()
-    conn._send_headers(b'CONNECT',
-                       to_bytestring('%s:%d' % (target_host, target_port)),
-                       # TODO proxy-authorization headers
-                       headers=HTTPHeaderMap())
+    conn._is_connect_request = True
+    conn.request('CONNECT', '%s:%d' % (target_host, target_port),
+                 headers=proxy_headers)
 
-    response = None
-    while response is None:
-        # 'encourage' the socket to receive data.
-        conn._sock.fill()
-        response = conn.parser.parse_response(conn._sock.buffer)
-    conn._sock.advance_buffer(response.consumed)
-
-    if response.status != 200:
+    resp = conn.get_response()
+    if resp.status != 200:
         raise ProxyError("Tunnel connection failed: %d %s" % (
-            response.status, to_native_string(response.msg.tobytes())))
+            resp.status, to_native_string(resp.reason)))
     return conn._sock

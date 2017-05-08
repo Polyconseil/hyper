@@ -27,7 +27,8 @@ class HTTP11Response(object):
 
     version = HTTPVersion.http11
 
-    def __init__(self, code, reason, headers, sock, connection=None):
+    def __init__(self, code, reason, headers, sock, connection=None,
+                 is_response_to_connect=False):
         #: The reason phrase returned by the server.
         self.reason = reason
 
@@ -62,11 +63,14 @@ class HTTP11Response(object):
             b'chunked' in self.headers.get(b'transfer-encoding', [])
         )
 
+        # For response to a non-CONNECT request,
         # One of the following must be true: we must expect that the connection
         # will be closed following the body, or that a content-length was sent,
         # or that we're getting a chunked response.
         # FIXME: Remove naked assert, replace with something better.
-        assert self._expect_close or self._length is not None or self._chunked
+        if not is_response_to_connect:
+            assert (self._expect_close or self._length is not None or
+                    self._chunked)
 
         # This object is used for decompressing gzipped request bodies. Right
         # now we only support gzip because that's all the RFC mandates of us.
