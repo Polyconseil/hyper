@@ -150,7 +150,7 @@ class HTTP11Connection(object):
         """
         conn = cls(proxy_host, proxy_port)
         conn.connect()
-        conn._send_headers(to_bytestring('CONNECT'),
+        conn._send_headers(b'CONNECT',
                            to_bytestring('%s:%d' % (target_host, target_port)),
                            # TODO proxy-authorization headers
                            headers=HTTPHeaderMap())
