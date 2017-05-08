@@ -189,8 +189,10 @@ class HTTP11Connection(object):
         method = to_bytestring(method)
 
         if self.proxy_host and not self.secure:
-            port_part = ':%d' % self.port if self.port != 80 else ''
-            url = 'http://%s%s%s' % (self.host, port_part, url)
+            # As per https://tools.ietf.org/html/rfc2068#section-5.1.2:
+            # The absoluteURI form is required when the request is being made
+            # to a proxy.
+            url = self._absolute_http_url(url)
         url = to_bytestring(url)
 
         if not isinstance(headers, HTTPHeaderMap):
@@ -225,6 +227,10 @@ class HTTP11Connection(object):
             self._send_body(body, body_type)
 
         return
+
+    def _absolute_http_url(self, url):
+        port_part = ':%d' % self.port if self.port != 80 else ''
+        return 'http://%s%s%s' % (self.host, port_part, url)
 
     def get_response(self):
         """
