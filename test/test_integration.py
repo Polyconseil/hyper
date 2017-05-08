@@ -677,6 +677,7 @@ class TestHyperIntegration(SocketLevelTest):
         self.set_up(secure=SocketSecure.SECURE_NO_AUTO_WRAP, proxy=True)
 
         data = []
+        connect_request_headers = []
         req_event = threading.Event()
         recv_event = threading.Event()
 
@@ -684,9 +685,8 @@ class TestHyperIntegration(SocketLevelTest):
             sock = listener.accept()[0]
 
             # Read the CONNECT request
-            connect_data = b''
-            while not connect_data.endswith(b'\r\n\r\n'):
-                connect_data += sock.recv(65535)
+            while not b''.join(connect_request_headers).endswith(b'\r\n\r\n'):
+                connect_request_headers.append(sock.recv(65535))
 
             sock.send(b'HTTP/1.0 200 Connection established\r\n\r\n')
 
@@ -730,6 +730,9 @@ class TestHyperIntegration(SocketLevelTest):
         assert r.headers[b'content-type'] == [b'not/real']
 
         assert r.read() == b'thisisaproxy'
+
+        assert b'CONNECT %s:%d HTTP/1.1\r\n\r\n' % (c.host, c.port) \
+               == b''.join(connect_request_headers)
 
         recv_event.set()
         self.tear_down()

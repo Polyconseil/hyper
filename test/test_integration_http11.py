@@ -166,15 +166,15 @@ class TestHyperH11Integration(SocketLevelTest):
     def test_secure_proxy_request_response(self):
         self.set_up(secure=SocketSecure.SECURE_NO_AUTO_WRAP, proxy=True)
 
+        connect_request_headers = []
         send_event = threading.Event()
 
         def socket_handler(listener):
             sock = listener.accept()[0]
 
             # Read the CONNECT request
-            connect_data = b''
-            while not connect_data.endswith(b'\r\n\r\n'):
-                connect_data += sock.recv(65535)
+            while not b''.join(connect_request_headers).endswith(b'\r\n\r\n'):
+                connect_request_headers.append(sock.recv(65535))
 
             sock.send(b'HTTP/1.0 200 Connection established\r\n\r\n')
 
@@ -213,6 +213,9 @@ class TestHyperH11Integration(SocketLevelTest):
         assert r.headers[b'connection'] == [b'close']
 
         assert r.read() == b''
+
+        assert b'CONNECT %s:%d HTTP/1.1\r\n\r\n' % (c.host, c.port) \
+               == b''.join(connect_request_headers)
 
         assert c._sock is None
 
