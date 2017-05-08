@@ -73,7 +73,13 @@ class MissingCertFile(Exception):
     pass
 
 
-class ProxyError(Exception):
+class ConnectionError(Exception):
+    """
+    An error occurred during connection to a host.
+    """
+
+
+class ProxyError(ConnectionError):
     """
     An error occurred during connection to a proxy.
     """
