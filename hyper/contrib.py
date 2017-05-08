@@ -31,18 +31,11 @@ class HTTP20Adapter(HTTPAdapter):
         #: A mapping between HTTP netlocs and ``HTTP20Connection`` objects.
         self.connections = {}
 
-    def get_connection(self, host, port, scheme, cert=None, proxies=None):
+    def get_connection(self, host, port, scheme, cert=None, proxy=None):
         """
         Gets an appropriate HTTP/2 connection object based on
         host/port/scheme/cert tuples.
         """
-        # TODO take custom request ports into account
-        proxy = select_proxy("%s://%s" % (scheme, host), proxies)
-
-        if proxy:
-            proxy = prepend_scheme_if_needed(proxy, 'http')
-            proxy = urlparse(proxy).netloc
-
         secure = (scheme == 'https')
 
         if port is None:  # pragma: no cover
@@ -70,13 +63,18 @@ class HTTP20Adapter(HTTPAdapter):
         """
         Sends a HTTP message to the server.
         """
+        proxy = select_proxy(request.url, proxies)
+        if proxy:
+            proxy = prepend_scheme_if_needed(proxy, 'http')
+            proxy = urlparse(proxy).netloc
+
         parsed = urlparse(request.url)
         conn = self.get_connection(
             parsed.hostname,
             parsed.port,
             parsed.scheme,
             cert=cert,
-            proxies=proxies)
+            proxy=proxy)
 
         # Build the selector.
         selector = parsed.path
