@@ -171,7 +171,7 @@ class TestHyperH11Integration(SocketLevelTest):
         def socket_handler(listener):
             sock = listener.accept()[0]
 
-            # Read the CONNECT reader
+            # Read the CONNECT request
             connect_data = b''
             while not connect_data.endswith(b'\r\n\r\n'):
                 connect_data += sock.recv(65535)

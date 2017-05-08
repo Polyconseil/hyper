@@ -116,11 +116,11 @@ class HTTP11Connection(object):
         if self._sock is None:
 
             if self.proxy_host and self.secure:
-                # http CONNECT proxy
+                # Send http CONNECT method to a proxy and acquire the socket
                 sock = HTTP11Connection._create_tunnel(
                     self.proxy_host, self.proxy_port, self.host, self.port)
             elif self.proxy_host:
-                # simple http proxy
+                # Simple http proxy
                 sock = socket.create_connection((self.proxy_host,
                                                  self.proxy_port), 5)
             else:
