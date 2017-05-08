@@ -272,8 +272,9 @@ class HTTP20Connection(object):
         # being sent in the wrong order, which can lead to the out-of-order
         # messages with lower stream IDs being closed prematurely.
         with self._write_lock:
-            # TODO should we send an absolute url as in http11 ...
-            # ... when (self.proxy_host and not self.secure)?
+            # Unlike HTTP/1.1, HTTP/2 (according to RFC 7540) doesn't require
+            # to use absolute URI when proxying.
+
             stream_id = self.putrequest(method, url)
 
             default_headers = (':method', ':scheme', ':authority', ':path')
