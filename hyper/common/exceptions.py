@@ -73,10 +73,14 @@ class MissingCertFile(Exception):
     pass
 
 
-class ConnectionError(Exception):
-    """
-    An error occurred during connection to a host.
-    """
+# Create our own ConnectionError.
+try:  # pragma: no cover
+    ConnectionError = ConnectionError
+except NameError:  # pragma: no cover
+    class ConnectionError(Exception):
+        """
+        An error occurred during connection to a host.
+        """
 
 
 class ProxyError(ConnectionError):
