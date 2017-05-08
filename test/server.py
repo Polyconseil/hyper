@@ -15,6 +15,7 @@ ingenuity and about a million beers. The license is available in NOTICES.
 import threading
 import socket
 import sys
+from enum import Enum
 
 from hyper import HTTP20Connection
 from hyper.compat import ssl
@@ -25,6 +26,12 @@ from hpack.huffman_constants import (
     REQUEST_CODES, REQUEST_CODES_LENGTH
 )
 from hyper.tls import NPN_PROTOCOL
+
+
+class SocketSecure(Enum):
+    SECURE = True
+    INSECURE = False
+    SECURE_NO_AUTO_WRAP = 'NO_AUTO_WRAP'
 
 
 class SocketServerThread(threading.Thread):
@@ -42,18 +49,17 @@ class SocketServerThread(threading.Thread):
                  host='localhost',
                  ready_event=None,
                  h2=True,
-                 secure=True,
-                 secure_auto_wrap_socket=True):
+                 socket_secure=SocketSecure.SECURE):
         threading.Thread.__init__(self)
 
         self.socket_handler = socket_handler
         self.host = host
-        self.secure = secure
-        self.secure_auto_wrap_socket = secure_auto_wrap_socket
+        self.socket_secure = socket_secure
         self.ready_event = ready_event
         self.daemon = True
 
-        if self.secure:
+        if self.socket_secure in (SocketSecure.SECURE,
+                                  SocketSecure.SECURE_NO_AUTO_WRAP):
             self.cxt = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
             if ssl.HAS_NPN and h2:
                 self.cxt.set_npn_protocols([NPN_PROTOCOL])
@@ -65,8 +71,8 @@ class SocketServerThread(threading.Thread):
         if sys.platform != 'win32':
             sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 
-        if self.secure and self.secure_auto_wrap_socket:
-            sock = self._wrap_socket(sock)
+        if self.socket_secure == SocketSecure.SECURE:
+            sock = self.wrap_socket(sock)
         sock.bind((self.host, 0))
         self.port = sock.getsockname()[1]
 
@@ -79,7 +85,7 @@ class SocketServerThread(threading.Thread):
         self.socket_handler(sock)
         sock.close()
 
-    def _wrap_socket(self, sock):
+    def wrap_socket(self, sock):
         return self.cxt.wrap_socket(sock, server_side=True)
 
     def run(self):
@@ -91,12 +97,11 @@ class SocketLevelTest(object):
     A test-class that defines a few helper methods for running socket-level
     tests.
     """
-    def set_up(self, secure=True, proxy=False, secure_auto_wrap_socket=True):
+    def set_up(self, secure=True, proxy=False):
         self.host = None
         self.port = None
-        self.secure = secure
+        self.socket_secure = SocketSecure(secure)
         self.proxy = proxy
-        self.secure_auto_wrap_socket = secure_auto_wrap_socket
         self.server_thread = None
 
     def _start_server(self, socket_handler):
@@ -108,15 +113,23 @@ class SocketLevelTest(object):
             socket_handler=socket_handler,
             ready_event=ready_event,
             h2=self.h2,
-            secure=self.secure,
-            secure_auto_wrap_socket=self.secure_auto_wrap_socket
+            socket_secure=self.socket_secure
         )
         self.server_thread.start()
         ready_event.wait()
 
         self.host = self.server_thread.host
         self.port = self.server_thread.port
-        self.secure = self.server_thread.secure
+        self.socket_secure = self.server_thread.socket_secure
+
+    @property
+    def secure(self):
+        return self.socket_secure in (SocketSecure.SECURE,
+                                      SocketSecure.SECURE_NO_AUTO_WRAP)
+
+    @secure.setter
+    def secure(self, value):
+        self.socket_secure = SocketSecure(value)
 
     def get_connection(self):
         if self.h2:

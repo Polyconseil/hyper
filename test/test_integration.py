@@ -29,7 +29,7 @@ from hpack.huffman_constants import (
     REQUEST_CODES, REQUEST_CODES_LENGTH
 )
 from hyper.http20.exceptions import ConnectionError, StreamResetError
-from server import SocketLevelTest
+from server import SocketLevelTest, SocketSecure
 
 # Turn off certificate verification for the tests.
 if ssl is not None:
@@ -674,7 +674,7 @@ class TestHyperIntegration(SocketLevelTest):
         self.tear_down()
 
     def test_secure_proxy_connection(self):
-        self.set_up(secure=True, secure_auto_wrap_socket=False, proxy=True)
+        self.set_up(secure=SocketSecure.SECURE_NO_AUTO_WRAP, proxy=True)
 
         data = []
         req_event = threading.Event()
@@ -690,8 +690,7 @@ class TestHyperIntegration(SocketLevelTest):
 
             sock.send(b'HTTP/1.0 200 Connection established\r\n\r\n')
 
-            # todo make this less ugly?
-            sock = self.server_thread._wrap_socket(sock)
+            sock = self.server_thread.wrap_socket(sock)
 
             receive_preamble(sock)
 
@@ -736,7 +735,7 @@ class TestHyperIntegration(SocketLevelTest):
         self.tear_down()
 
     def test_failing_proxy_tunnel(self):
-        self.set_up(secure=True, secure_auto_wrap_socket=False, proxy=True)
+        self.set_up(secure=SocketSecure.SECURE_NO_AUTO_WRAP, proxy=True)
 
         recv_event = threading.Event()
 
@@ -1324,7 +1323,7 @@ class TestRequestsAdapter(SocketLevelTest):
         self.tear_down()
 
     def test_adapter_uses_proxies(self):
-        self.set_up(secure=True, secure_auto_wrap_socket=False, proxy=True)
+        self.set_up(secure=SocketSecure.SECURE_NO_AUTO_WRAP, proxy=True)
 
         send_event = threading.Event()
 
@@ -1338,8 +1337,7 @@ class TestRequestsAdapter(SocketLevelTest):
 
             sock.send(b'HTTP/1.0 200 Connection established\r\n\r\n')
 
-            # todo make this less ugly?
-            sock = self.server_thread._wrap_socket(sock)
+            sock = self.server_thread.wrap_socket(sock)
 
             # We should get the initial request.
             data = b''

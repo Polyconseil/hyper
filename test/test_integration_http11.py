@@ -11,7 +11,7 @@ import threading
 import pytest
 
 from hyper.compat import ssl
-from server import SocketLevelTest
+from server import SocketLevelTest, SocketSecure
 from hyper.common.exceptions import HTTPUpgrade
 
 # Turn off certificate verification for the tests.
@@ -164,7 +164,7 @@ class TestHyperH11Integration(SocketLevelTest):
         assert c._sock is None
 
     def test_secure_proxy_request_response(self):
-        self.set_up(secure=True, secure_auto_wrap_socket=False, proxy=True)
+        self.set_up(secure=SocketSecure.SECURE_NO_AUTO_WRAP, proxy=True)
 
         send_event = threading.Event()
 
@@ -178,8 +178,7 @@ class TestHyperH11Integration(SocketLevelTest):
 
             sock.send(b'HTTP/1.0 200 Connection established\r\n\r\n')
 
-            # todo make this less ugly?
-            sock = self.server_thread._wrap_socket(sock)
+            sock = self.server_thread.wrap_socket(sock)
 
             # We should get the initial request.
             data = b''
