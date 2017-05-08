@@ -117,8 +117,8 @@ class HTTP11Connection(object):
 
             if self.proxy_host and self.secure:
                 # Send http CONNECT method to a proxy and acquire the socket
-                sock = HTTP11Connection._create_tunnel(
-                    self.proxy_host, self.proxy_port, self.host, self.port)
+                sock = _create_tunnel(self.proxy_host, self.proxy_port,
+                                      self.host, self.port)
             elif self.proxy_host:
                 # Simple http proxy
                 sock = socket.create_connection((self.proxy_host,
@@ -139,33 +139,6 @@ class HTTP11Connection(object):
             self._sock = sock
 
         return
-
-    @classmethod
-    def _create_tunnel(cls, proxy_host, proxy_port, target_host, target_port):
-        """
-        Sends CONNECT method to a proxy and returns a socket with established
-        connection to the target.
-
-        :returns: socket
-        """
-        conn = cls(proxy_host, proxy_port)
-        conn.connect()
-        conn._send_headers(b'CONNECT',
-                           to_bytestring('%s:%d' % (target_host, target_port)),
-                           # TODO proxy-authorization headers
-                           headers=HTTPHeaderMap())
-
-        response = None
-        while response is None:
-            # 'encourage' the socket to receive data.
-            conn._sock.fill()
-            response = conn.parser.parse_response(conn._sock.buffer)
-        conn._sock.advance_buffer(response.consumed)
-
-        if response.status != 200:
-            raise ProxyError("Tunnel connection failed: %d %s" % (
-                response.status, to_native_string(response.msg.tobytes())))
-        return conn._sock
 
     def request(self, method, url, body=None, headers=None):
         """
@@ -436,3 +409,30 @@ class HTTP11Connection(object):
     def __exit__(self, type, value, tb):
         self.close()
         return False  # Never swallow exceptions.
+
+
+def _create_tunnel(proxy_host, proxy_port, target_host, target_port):
+    """
+    Sends CONNECT method to a proxy and returns a socket with established
+    connection to the target.
+
+    :returns: socket
+    """
+    conn = HTTP11Connection(proxy_host, proxy_port)
+    conn.connect()
+    conn._send_headers(b'CONNECT',
+                       to_bytestring('%s:%d' % (target_host, target_port)),
+                       # TODO proxy-authorization headers
+                       headers=HTTPHeaderMap())
+
+    response = None
+    while response is None:
+        # 'encourage' the socket to receive data.
+        conn._sock.fill()
+        response = conn.parser.parse_response(conn._sock.buffer)
+    conn._sock.advance_buffer(response.consumed)
+
+    if response.status != 200:
+        raise ProxyError("Tunnel connection failed: %d %s" % (
+            response.status, to_native_string(response.msg.tobytes())))
+    return conn._sock

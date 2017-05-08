@@ -18,7 +18,7 @@ from ..common.util import (
     to_host_port_tuple, to_native_string, to_bytestring, HTTPVersion
 )
 from ..compat import unicode, bytes
-from ..http11.connection import HTTP11Connection
+from ..http11.connection import _create_tunnel
 from .stream import Stream
 from .response import HTTP20Response, HTTP20Push
 from .window import FlowControlManager
@@ -363,8 +363,8 @@ class HTTP20Connection(object):
 
             if self.proxy_host and self.secure:
                 # Send http CONNECT method to a proxy and acquire the socket
-                sock = HTTP11Connection._create_tunnel(
-                    self.proxy_host, self.proxy_port, self.host, self.port)
+                sock = _create_tunnel(self.proxy_host, self.proxy_port,
+                                      self.host, self.port)
             elif self.proxy_host:
                 # Simple http proxy
                 sock = socket.create_connection((self.proxy_host,
