@@ -219,6 +219,50 @@ class TestHyperH11Integration(SocketLevelTest):
 
         assert c._sock is None
 
+    def test_proxy_connection_close_is_respected(self):
+        self.set_up(secure=False, proxy=True)
+
+        send_event = threading.Event()
+
+        def socket_handler(listener):
+            sock = listener.accept()[0]
+
+            # We should get the initial request.
+            data = b''
+            while not data.endswith(b'\r\n\r\n'):
+                data += sock.recv(65535)
+
+            send_event.wait()
+
+            # We need to send back a response.
+            resp = (
+                b'HTTP/1.0 407 Proxy Authentication Required\r\n'
+                b'Proxy-Authenticate: Basic realm="proxy"\r\n'
+                b'Proxy-Connection: close\r\n'
+                b'\r\n'
+            )
+            sock.send(resp)
+
+            sock.close()
+
+        self._start_server(socket_handler)
+        conn = self.get_connection()
+        conn.request('GET', '/')
+        send_event.set()
+
+        r = conn.get_response()
+
+        assert r.status == 407
+        assert r.reason == b'Proxy Authentication Required'
+        assert len(r.headers) == 2
+        assert r.headers[b'proxy-authenticate'] == [b'Basic realm="proxy"']
+        assert r.headers[b'proxy-connection'] == [b'close']
+
+        assert r.read() == b''
+
+        # Confirm the connection is closed.
+        assert conn._sock is None
+
     def test_response_with_body(self):
         self.set_up()
 
