@@ -10,8 +10,10 @@ try:
     from requests.models import Response
     from requests.structures import CaseInsensitiveDict
     from requests.utils import (
-        get_encoding_from_headers, select_proxy, prepend_scheme_if_needed
+        get_encoding_from_headers, select_proxy, prepend_scheme_if_needed,
+        get_auth_from_url
     )
+    from requests.auth import _basic_auth_str
     from requests.cookies import extract_cookies_to_jar
 except ImportError:  # pragma: no cover
     HTTPAdapter = object
@@ -31,7 +33,8 @@ class HTTP20Adapter(HTTPAdapter):
         #: A mapping between HTTP netlocs and ``HTTP20Connection`` objects.
         self.connections = {}
 
-    def get_connection(self, host, port, scheme, cert=None, proxy=None):
+    def get_connection(self, host, port, scheme, cert=None, proxy=None,
+                       proxy_headers=None):
         """
         Gets an appropriate HTTP/2 connection object based on
         host/port/scheme/cert tuples.
@@ -54,7 +57,8 @@ class HTTP20Adapter(HTTPAdapter):
                 port,
                 secure=secure,
                 ssl_context=ssl_context,
-                proxy_host=proxy)
+                proxy_host=proxy,
+                proxy_headers=proxy_headers)
             self.connections[connection_key] = conn
 
         return conn
@@ -64,8 +68,10 @@ class HTTP20Adapter(HTTPAdapter):
         Sends a HTTP message to the server.
         """
         proxy = select_proxy(request.url, proxies)
+        proxy_headers = None
         if proxy:
             proxy = prepend_scheme_if_needed(proxy, 'http')
+            proxy_headers = self.proxy_headers(proxy)
             proxy = urlparse(proxy).netloc
 
         parsed = urlparse(request.url)
@@ -74,7 +80,8 @@ class HTTP20Adapter(HTTPAdapter):
             parsed.port,
             parsed.scheme,
             cert=cert,
-            proxy=proxy)
+            proxy=proxy,
+            proxy_headers=proxy_headers)
 
         # Build the selector.
         selector = parsed.path
@@ -167,3 +174,16 @@ class HTTP20Adapter(HTTPAdapter):
         orig.msg = FakeOriginalResponse(resp.headers.iter_raw())
 
         return response
+
+    def proxy_headers(self, proxy):
+        """
+        Returns a dictionary of the headers to add to any request sent
+        through a proxy.
+        """
+        headers = {}
+        username, password = get_auth_from_url(proxy)
+
+        if username:
+            headers['Proxy-Authorization'] = _basic_auth_str(username,
+                                                             password)
+        return headers

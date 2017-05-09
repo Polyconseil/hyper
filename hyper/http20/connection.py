@@ -93,13 +93,15 @@ class HTTP20Connection(object):
     :param proxy_port: (optional) The proxy port to connect to. If not provided
         and one also isn't provided in the ``proxy_host`` parameter, defaults
         to 8080.
+    :param proxy_headers: (optional) The headers to send to a proxy.
     """
 
     version = HTTPVersion.http20
 
     def __init__(self, host, port=None, secure=None, window_manager=None,
                  enable_push=False, ssl_context=None, proxy_host=None,
-                 proxy_port=None, force_proto=None, **kwargs):
+                 proxy_port=None, force_proto=None, proxy_headers=None,
+                 **kwargs):
         """
         Creates an HTTP/2 connection to a specific server.
         """
@@ -128,6 +130,7 @@ class HTTP20Connection(object):
         else:
             self.proxy_host = None
             self.proxy_port = None
+        self.proxy_headers = proxy_headers
 
         #: The size of the in-memory buffer used to store data from the
         #: network. This is used as a performance optimisation. Increase buffer
@@ -282,6 +285,13 @@ class HTTP20Connection(object):
                 is_default = to_native_string(name) in default_headers
                 self.putheader(name, value, stream_id, replace=is_default)
 
+            # Append proxy headers.
+            if self.proxy_host and not self.secure:
+                proxy_headers = self.proxy_headers or {}
+                for name, value in proxy_headers.items():
+                    is_default = to_native_string(name) in default_headers
+                    self.putheader(name, value, stream_id, replace=is_default)
+
             # Convert the body to bytes if needed.
             if body and isinstance(body, (unicode, bytes)):
                 body = to_bytestring(body)
@@ -364,7 +374,8 @@ class HTTP20Connection(object):
             if self.proxy_host and self.secure:
                 # Send http CONNECT method to a proxy and acquire the socket
                 sock = _create_tunnel(self.proxy_host, self.proxy_port,
-                                      self.host, self.port)
+                                      self.host, self.port,
+                                      proxy_headers=self.proxy_headers)
             elif self.proxy_host:
                 # Simple http proxy
                 sock = socket.create_connection((self.proxy_host,

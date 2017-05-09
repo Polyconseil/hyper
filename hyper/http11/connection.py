@@ -57,12 +57,14 @@ class HTTP11Connection(object):
     :param proxy_port: (optional) The proxy port to connect to. If not provided
         and one also isn't provided in the ``proxy_host`` parameter,
         defaults to 8080.
+    :param proxy_headers: (optional) The headers to send to a proxy.
     """
 
     version = HTTPVersion.http11
 
     def __init__(self, host, port=None, secure=None, ssl_context=None,
-                 proxy_host=None, proxy_port=None, **kwargs):
+                 proxy_host=None, proxy_port=None, proxy_headers=None,
+                 **kwargs):
         if port is None:
             self.host, self.port = to_host_port_tuple(host, default_port=80)
         else:
@@ -99,6 +101,7 @@ class HTTP11Connection(object):
         else:
             self.proxy_host = None
             self.proxy_port = None
+        self.proxy_headers = proxy_headers
 
         #: The size of the in-memory buffer used to store data from the
         #: network. This is used as a performance optimisation. Increase buffer
@@ -122,7 +125,8 @@ class HTTP11Connection(object):
             if self.proxy_host and self.secure:
                 # Send http CONNECT method to a proxy and acquire the socket
                 sock = _create_tunnel(self.proxy_host, self.proxy_port,
-                                      self.host, self.port)
+                                      self.host, self.port,
+                                      proxy_headers=self.proxy_headers)
             elif self.proxy_host:
                 # Simple http proxy
                 sock = socket.create_connection((self.proxy_host,
@@ -161,8 +165,6 @@ class HTTP11Connection(object):
         :returns: Nothing.
         """
 
-        headers = headers or {}
-
         method = to_bytestring(method)
 
         if self.proxy_host and not self.secure:
@@ -172,15 +174,12 @@ class HTTP11Connection(object):
             url = self._absolute_http_url(url)
         url = to_bytestring(url)
 
-        if not isinstance(headers, HTTPHeaderMap):
-            if isinstance(headers, Mapping):
-                headers = HTTPHeaderMap(headers.items())
-            elif isinstance(headers, Iterable):
-                headers = HTTPHeaderMap(headers)
-            else:
-                raise ValueError(
-                    'Header argument must be a dictionary or an iterable'
-                )
+        headers = self._headers_to_http_header_map(headers)
+
+        # Append proxy headers.
+        if self.proxy_host and not self.secure:
+            headers.update(
+                self._headers_to_http_header_map(self.proxy_headers).items())
 
         if self._sock is None:
             self.connect()
@@ -204,6 +203,19 @@ class HTTP11Connection(object):
             self._send_body(body, body_type)
 
         return
+
+    def _headers_to_http_header_map(self, headers):
+        headers = headers or {}
+        if not isinstance(headers, HTTPHeaderMap):
+            if isinstance(headers, Mapping):
+                headers = HTTPHeaderMap(headers.items())
+            elif isinstance(headers, Iterable):
+                headers = HTTPHeaderMap(headers)
+            else:
+                raise ValueError(
+                    'Header argument must be a dictionary or an iterable'
+                )
+        return headers
 
     def _absolute_http_url(self, url):
         port_part = ':%d' % self.port if self.port != 80 else ''
