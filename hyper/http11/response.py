@@ -49,7 +49,8 @@ class HTTP11Response(object):
         # bother checking for content-length, we just keep reading until
         # we no longer can.
         self._expect_close = False
-        if b'close' in self.headers.get(b'connection', []):
+        if (b'close' in self.headers.get(b'connection', []) or
+                b'close' in self.headers.get(b'proxy-connection', [])):
             self._expect_close = True
 
         # The expected length of the body.
