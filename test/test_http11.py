@@ -201,6 +201,46 @@ class TestHTTP11Connection(object):
 
         assert received == expected
 
+    def test_proxy_headers_presence_for_insecure_request(self):
+        c = HTTP11Connection(
+            'httpbin.org', secure=False, proxy_host='localhost',
+            proxy_headers={'Proxy-Authorization': 'Basic ==='})
+        c._sock = sock = DummySocket()
+
+        c.request('GET', '/get', headers={'User-Agent': 'hyper'})
+
+        expected = (
+            b"GET http://httpbin.org/get HTTP/1.1\r\n"
+            b"User-Agent: hyper\r\n"
+            b"proxy-authorization: Basic ===\r\n"
+            b"connection: Upgrade, HTTP2-Settings\r\n"
+            b"upgrade: h2c\r\n"
+            b"HTTP2-Settings: AAQAAP__\r\n"
+            b"host: httpbin.org\r\n"
+            b"\r\n"
+        )
+        received = b''.join(sock.queue)
+
+        assert received == expected
+
+    def test_proxy_headers_absence_for_secure_request(self):
+        c = HTTP11Connection(
+            'httpbin.org', secure=True, proxy_host='localhost',
+            proxy_headers={'Proxy-Authorization': 'Basic ==='})
+        c._sock = sock = DummySocket()
+
+        c.request('GET', '/get', headers={'User-Agent': 'hyper'})
+
+        expected = (
+            b"GET /get HTTP/1.1\r\n"
+            b"User-Agent: hyper\r\n"
+            b"host: httpbin.org\r\n"
+            b"\r\n"
+        )
+        received = b''.join(sock.queue)
+
+        assert received == expected
+
     def test_request_with_bytestring_body(self):
         c = HTTP11Connection('httpbin.org')
         c._sock = sock = DummySocket()
