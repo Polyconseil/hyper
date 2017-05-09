@@ -1396,8 +1396,8 @@ class TestRequestsAdapter(SocketLevelTest):
             # Ensure that request contains the proper Proxy-Authorization
             # header
             assert (b'CONNECT foobar:443 HTTP/1.1\r\n'
-                    b'Proxy-Authorization: Basic %s\r\n' %
-                    base64.b64encode(b'foo:bar') +
+                    b'Proxy-Authorization: Basic ' +
+                    base64.b64encode(b'foo:bar') + b'\r\n'
                     b'\r\n') == connect_data
 
             sock.send(b'HTTP/1.0 200 Connection established\r\n\r\n')
@@ -1457,8 +1457,8 @@ class TestRequestsAdapter(SocketLevelTest):
 
             # Ensure that request contains the proper Proxy-Authorization
             # header
-            assert (b'Proxy-Authorization: Basic %s\r\n'
-                    % base64.b64encode(b'foo:bar')
+            assert (b'Proxy-Authorization: Basic ' +
+                    base64.b64encode(b'foo:bar') + b'\r\n'
                     ).lower() in connect_data.lower()
 
             send_event.wait()
