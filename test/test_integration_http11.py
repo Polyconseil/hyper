@@ -13,6 +13,7 @@ import pytest
 from hyper.compat import ssl
 from server import SocketLevelTest, SocketSecure
 from hyper.common.exceptions import HTTPUpgrade
+from hyper.common.util import to_bytestring
 
 # Turn off certificate verification for the tests.
 if ssl is not None:
@@ -214,8 +215,9 @@ class TestHyperH11Integration(SocketLevelTest):
 
         assert r.read() == b''
 
-        assert b'CONNECT %s:%d HTTP/1.1\r\n\r\n' % (c.host, c.port) \
-               == b''.join(connect_request_headers)
+        assert (to_bytestring(
+            'CONNECT %s:%d HTTP/1.1\r\n\r\n' % (c.host, c.port)) ==
+                b''.join(connect_request_headers))
 
         assert c._sock is None
 

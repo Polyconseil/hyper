@@ -19,7 +19,7 @@ from h2.frame_buffer import FrameBuffer
 from hyper.compat import ssl
 from hyper.contrib import HTTP20Adapter
 from hyper.common.exceptions import ProxyError
-from hyper.common.util import HTTPVersion
+from hyper.common.util import HTTPVersion, to_bytestring
 from hyperframe.frame import (
     Frame, SettingsFrame, WindowUpdateFrame, DataFrame, HeadersFrame,
     GoAwayFrame, RstStreamFrame
@@ -732,8 +732,9 @@ class TestHyperIntegration(SocketLevelTest):
 
         assert r.read() == b'thisisaproxy'
 
-        assert b'CONNECT %s:%d HTTP/1.1\r\n\r\n' % (c.host, c.port) \
-               == b''.join(connect_request_headers)
+        assert (to_bytestring(
+            'CONNECT %s:%d HTTP/1.1\r\n\r\n' % (c.host, c.port)) ==
+                b''.join(connect_request_headers))
 
         recv_event.set()
         self.tear_down()
