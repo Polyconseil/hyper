@@ -99,7 +99,7 @@ class HTTP20Adapter(HTTPAdapter):
     def build_response(self, request, resp):
         """
         Builds a Requests' response object.  This emulates most of the logic of
-        the standard fuction but deals with the lack of the ``.headers``
+        the standard function but deals with the lack of the ``.headers``
         property on the HTTP20Response object.
 
         Additionally, this function builds in a number of features that are

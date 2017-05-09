@@ -44,8 +44,8 @@ class HTTPConnection(object):
     :param proxy_host: (optional) The proxy to connect to.  This can be an IP
         address or a host name and may include a port.
     :param proxy_port: (optional) The proxy port to connect to. If not provided
-        and one also isn't provided in the ``proxy`` parameter, defaults to
-        8080.
+        and one also isn't provided in the ``proxy_host`` parameter, defaults
+        to 8080.
     """
     def __init__(self,
                  host,
