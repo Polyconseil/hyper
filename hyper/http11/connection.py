@@ -121,9 +121,9 @@ class HTTP11Connection(object):
         self.ssl_context = ssl_context
         self._sock = None
 
-        # Keep request methods in a queue in order to be able to know
+        # Keep the current request method in order to be able to know
         # in get_response() what was the request verb.
-        self._request_methods = []
+        self._current_request_method = None
 
         # Setup proxy details if applicable.
         if proxy_host and proxy_port is None:
@@ -207,7 +207,7 @@ class HTTP11Connection(object):
 
         method = to_bytestring(method)
         is_connect_method = b'CONNECT' == method.upper()
-        self._request_methods.append(method)
+        self._current_request_method = method
 
         if self.proxy_host and not self.secure:
             # As per https://tools.ietf.org/html/rfc2068#section-5.1.2:
@@ -258,8 +258,7 @@ class HTTP11Connection(object):
         This is an early beta, so the response object is pretty stupid. That's
         ok, we'll fix it later.
         """
-        method = (self._request_methods.pop(0)
-                  if self._request_methods else None)
+        method = self._current_request_method
         headers = HTTPHeaderMap()
 
         response = None
