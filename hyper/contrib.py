@@ -10,10 +10,8 @@ try:
     from requests.models import Response
     from requests.structures import CaseInsensitiveDict
     from requests.utils import (
-        get_encoding_from_headers, select_proxy, prepend_scheme_if_needed,
-        get_auth_from_url
+        get_encoding_from_headers, select_proxy, prepend_scheme_if_needed
     )
-    from requests.auth import _basic_auth_str
     from requests.cookies import extract_cookies_to_jar
 except ImportError:  # pragma: no cover
     HTTPAdapter = object
@@ -174,16 +172,3 @@ class HTTP20Adapter(HTTPAdapter):
         orig.msg = FakeOriginalResponse(resp.headers.iter_raw())
 
         return response
-
-    def proxy_headers(self, proxy):
-        """
-        Returns a dictionary of the headers to add to any request sent
-        through a proxy.
-        """
-        headers = {}
-        username, password = get_auth_from_url(proxy)
-
-        if username:
-            headers['Proxy-Authorization'] = _basic_auth_str(username,
-                                                             password)
-        return headers
