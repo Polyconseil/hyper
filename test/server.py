@@ -29,6 +29,17 @@ from hyper.tls import NPN_PROTOCOL
 
 
 class SocketSecuritySetting(Enum):
+    """
+    Server socket TLS wrapping strategy:
+
+    SECURE - automatically wrap socket
+    INSECURE - never wrap
+    SECURE_NO_AUTO_WRAP - init context, but socket must be wrapped manually
+
+    The values are needed to be able to convert ``secure`` boolean flag of
+    a client to a member of this enum:
+    ``socket_security = SocketSecuritySetting(secure)``
+    """
     SECURE = True
     INSECURE = False
     SECURE_NO_AUTO_WRAP = 'NO_AUTO_WRAP'
