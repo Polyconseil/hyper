@@ -30,6 +30,7 @@ import logging
 import socket
 import time
 import threading
+import itertools
 
 log = logging.getLogger(__name__)
 
@@ -281,16 +282,14 @@ class HTTP20Connection(object):
             stream_id = self.putrequest(method, url)
 
             default_headers = (':method', ':scheme', ':authority', ':path')
-            for name, value in headers.items():
-                is_default = to_native_string(name) in default_headers
-                self.putheader(name, value, stream_id, replace=is_default)
-
-            # Append proxy headers.
+            all_headers = headers.items()
             if self.proxy_host and not self.secure:
                 proxy_headers = self.proxy_headers or {}
-                for name, value in proxy_headers.items():
-                    is_default = to_native_string(name) in default_headers
-                    self.putheader(name, value, stream_id, replace=is_default)
+                all_headers = itertools.chain(all_headers,
+                                              proxy_headers.items())
+            for name, value in all_headers:
+                is_default = to_native_string(name) in default_headers
+                self.putheader(name, value, stream_id, replace=is_default)
 
             # Convert the body to bytes if needed.
             if body and isinstance(body, (unicode, bytes)):
