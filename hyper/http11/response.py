@@ -28,7 +28,7 @@ class HTTP11Response(object):
     version = HTTPVersion.http11
 
     def __init__(self, code, reason, headers, sock, connection=None,
-                 is_response_to_connect=False):
+                 request_method=None):
         #: The reason phrase returned by the server.
         self.reason = reason
 
@@ -69,7 +69,7 @@ class HTTP11Response(object):
         # will be closed following the body, or that a content-length was sent,
         # or that we're getting a chunked response.
         # FIXME: Remove naked assert, replace with something better.
-        if not is_response_to_connect:
+        if request_method is None or b'CONNECT' != request_method.upper():
             assert (self._expect_close or self._length is not None or
                     self._chunked)
 

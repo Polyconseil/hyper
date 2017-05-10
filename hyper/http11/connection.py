@@ -47,7 +47,6 @@ def _create_tunnel(proxy_host, proxy_port, target_host, target_port,
     :returns: socket
     """
     conn = HTTP11Connection(proxy_host, proxy_port)
-    conn._is_connect_request = True
     conn.request('CONNECT', '%s:%d' % (target_host, target_port),
                  headers=proxy_headers)
 
@@ -104,12 +103,12 @@ class HTTP11Connection(object):
         self._send_http_upgrade = not self.secure
         self._enable_push = kwargs.get('enable_push')
 
-        # CONNECT request (to create a tunnel via proxy) has a few special
-        # cases which needs to be processed differently.
-        self._is_connect_request = False
-
         self.ssl_context = ssl_context
         self._sock = None
+
+        # Keep request methods in a queue in order to be able to know
+        # in get_response() what was the request verb.
+        self._request_methods = []
 
         # Setup proxy details if applicable.
         if proxy_host and proxy_port is None:
@@ -192,6 +191,8 @@ class HTTP11Connection(object):
         """
 
         method = to_bytestring(method)
+        is_connect_method = b'CONNECT' == method.upper()
+        self._request_methods.append(method)
 
         if self.proxy_host and not self.secure:
             # As per https://tools.ietf.org/html/rfc2068#section-5.1.2:
@@ -211,7 +212,7 @@ class HTTP11Connection(object):
         if self._sock is None:
             self.connect()
 
-        if not self._is_connect_request and self._send_http_upgrade:
+        if not is_connect_method and self._send_http_upgrade:
             self._add_upgrade_headers(headers)
             self._send_http_upgrade = False
 
@@ -219,7 +220,7 @@ class HTTP11Connection(object):
         if body:
             body_type = self._add_body_headers(headers, body)
 
-        if not self._is_connect_request and b'host' not in headers:
+        if not is_connect_method and b'host' not in headers:
             headers[b'host'] = self.host
 
         # Begin by emitting the header block.
@@ -255,6 +256,8 @@ class HTTP11Connection(object):
         This is an early beta, so the response object is pretty stupid. That's
         ok, we'll fix it later.
         """
+        method = (self._request_methods.pop(0)
+                  if self._request_methods else None)
         headers = HTTPHeaderMap()
 
         response = None
@@ -274,8 +277,7 @@ class HTTP11Connection(object):
         # https://github.com/Lukasa/hyper/issues/312.
         # Connection options are case-insensitive, while upgrade tokens are
         # case-sensitive: https://github.com/httpwg/http11bis/issues/8.
-        if (not self._is_connect_request and
-                response.status == 101 and
+        if (response.status == 101 and
                 b'upgrade' in map(bytes.lower, headers['connection']) and
                 H2C_PROTOCOL.encode('utf-8') in headers['upgrade']):
             raise HTTPUpgrade(H2C_PROTOCOL, self._sock)
@@ -286,7 +288,7 @@ class HTTP11Connection(object):
             headers,
             self._sock,
             self,
-            self._is_connect_request
+            method
         )
 
     def _send_headers(self, method, url, headers):
