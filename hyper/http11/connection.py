@@ -38,6 +38,26 @@ BODY_CHUNKED = 1
 BODY_FLAT = 2
 
 
+def _create_tunnel(proxy_host, proxy_port, target_host, target_port,
+                   proxy_headers=None):
+    """
+    Sends CONNECT method to a proxy and returns a socket with established
+    connection to the target.
+
+    :returns: socket
+    """
+    conn = HTTP11Connection(proxy_host, proxy_port)
+    conn._is_connect_request = True
+    conn.request('CONNECT', '%s:%d' % (target_host, target_port),
+                 headers=proxy_headers)
+
+    resp = conn.get_response()
+    if resp.status != 200:
+        raise ProxyError("Tunnel connection failed: %d %s" % (
+            resp.status, to_native_string(resp.reason)))
+    return conn._sock
+
+
 class HTTP11Connection(object):
     """
     An object representing a single HTTP/1.1 connection to a server.
@@ -434,23 +454,3 @@ class HTTP11Connection(object):
     def __exit__(self, type, value, tb):
         self.close()
         return False  # Never swallow exceptions.
-
-
-def _create_tunnel(proxy_host, proxy_port, target_host, target_port,
-                   proxy_headers=None):
-    """
-    Sends CONNECT method to a proxy and returns a socket with established
-    connection to the target.
-
-    :returns: socket
-    """
-    conn = HTTP11Connection(proxy_host, proxy_port)
-    conn._is_connect_request = True
-    conn.request('CONNECT', '%s:%d' % (target_host, target_port),
-                 headers=proxy_headers)
-
-    resp = conn.get_response()
-    if resp.status != 200:
-        raise ProxyError("Tunnel connection failed: %d %s" % (
-            resp.status, to_native_string(resp.reason)))
-    return conn._sock
