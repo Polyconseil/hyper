@@ -11,7 +11,7 @@ import threading
 import pytest
 
 from hyper.compat import ssl
-from server import SocketLevelTest, SocketSecure
+from server import SocketLevelTest, SocketSecuritySetting
 from hyper.common.exceptions import HTTPUpgrade
 from hyper.common.util import to_bytestring
 
@@ -165,7 +165,8 @@ class TestHyperH11Integration(SocketLevelTest):
         assert c._sock is None
 
     def test_secure_proxy_request_response(self):
-        self.set_up(secure=SocketSecure.SECURE_NO_AUTO_WRAP, proxy=True)
+        self.set_up(secure=SocketSecuritySetting.SECURE_NO_AUTO_WRAP,
+                    proxy=True)
 
         connect_request_headers = []
         send_event = threading.Event()
