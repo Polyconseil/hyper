@@ -57,6 +57,21 @@ def _create_tunnel(proxy_host, proxy_port, target_host, target_port,
     return conn._sock
 
 
+def _headers_to_http_header_map(headers):
+    # TODO turn this to a classmethod of HTTPHeaderMap
+    headers = headers or {}
+    if not isinstance(headers, HTTPHeaderMap):
+        if isinstance(headers, Mapping):
+            headers = HTTPHeaderMap(headers.items())
+        elif isinstance(headers, Iterable):
+            headers = HTTPHeaderMap(headers)
+        else:
+            raise ValueError(
+                'Header argument must be a dictionary or an iterable'
+            )
+    return headers
+
+
 class HTTP11Connection(object):
     """
     An object representing a single HTTP/1.1 connection to a server.
@@ -201,12 +216,12 @@ class HTTP11Connection(object):
             url = self._absolute_http_url(url)
         url = to_bytestring(url)
 
-        headers = self._headers_to_http_header_map(headers)
+        headers = _headers_to_http_header_map(headers)
 
         # Append proxy headers.
         if self.proxy_host and not self.secure:
             headers.update(
-                self._headers_to_http_header_map(self.proxy_headers).items()
+                _headers_to_http_header_map(self.proxy_headers).items()
             )
 
         if self._sock is None:
@@ -231,19 +246,6 @@ class HTTP11Connection(object):
             self._send_body(body, body_type)
 
         return
-
-    def _headers_to_http_header_map(self, headers):
-        headers = headers or {}
-        if not isinstance(headers, HTTPHeaderMap):
-            if isinstance(headers, Mapping):
-                headers = HTTPHeaderMap(headers.items())
-            elif isinstance(headers, Iterable):
-                headers = HTTPHeaderMap(headers)
-            else:
-                raise ValueError(
-                    'Header argument must be a dictionary or an iterable'
-                )
-        return headers
 
     def _absolute_http_url(self, url):
         port_part = ':%d' % self.port if self.port != 80 else ''
