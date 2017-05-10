@@ -31,8 +31,7 @@ class HTTP20Adapter(HTTPAdapter):
         #: A mapping between HTTP netlocs and ``HTTP20Connection`` objects.
         self.connections = {}
 
-    def get_connection(self, host, port, scheme, cert=None, proxy=None,
-                       proxy_headers=None):
+    def get_connection(self, host, port, scheme, cert=None, proxy=None):
         """
         Gets an appropriate HTTP/2 connection object based on
         host/port/scheme/cert tuples.
@@ -46,6 +45,13 @@ class HTTP20Adapter(HTTPAdapter):
         if cert is not None:
             ssl_context = init_context(cert=cert)
 
+        if proxy:
+            proxy_headers = self.proxy_headers(proxy)
+            proxy_netloc = urlparse(proxy).netloc
+        else:
+            proxy_headers = None
+            proxy_netloc = None
+
         connection_key = (host, port, scheme, cert, proxy)
         try:
             conn = self.connections[connection_key]
@@ -55,7 +61,7 @@ class HTTP20Adapter(HTTPAdapter):
                 port,
                 secure=secure,
                 ssl_context=ssl_context,
-                proxy_host=proxy,
+                proxy_host=proxy_netloc,
                 proxy_headers=proxy_headers)
             self.connections[connection_key] = conn
 
@@ -66,11 +72,8 @@ class HTTP20Adapter(HTTPAdapter):
         Sends a HTTP message to the server.
         """
         proxy = select_proxy(request.url, proxies)
-        proxy_headers = None
         if proxy:
             proxy = prepend_scheme_if_needed(proxy, 'http')
-            proxy_headers = self.proxy_headers(proxy)
-            proxy = urlparse(proxy).netloc
 
         parsed = urlparse(request.url)
         conn = self.get_connection(
@@ -78,8 +81,7 @@ class HTTP20Adapter(HTTPAdapter):
             parsed.port,
             parsed.scheme,
             cert=cert,
-            proxy=proxy,
-            proxy_headers=proxy_headers)
+            proxy=proxy)
 
         # Build the selector.
         selector = parsed.path
