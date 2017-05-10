@@ -124,13 +124,19 @@ class HTTP11Connection(object):
 
             if self.proxy_host and self.secure:
                 # Send http CONNECT method to a proxy and acquire the socket
-                sock = _create_tunnel(self.proxy_host, self.proxy_port,
-                                      self.host, self.port,
-                                      proxy_headers=self.proxy_headers)
+                sock = _create_tunnel(
+                    self.proxy_host,
+                    self.proxy_port,
+                    self.host,
+                    self.port,
+                    proxy_headers=self.proxy_headers
+                )
             elif self.proxy_host:
                 # Simple http proxy
-                sock = socket.create_connection((self.proxy_host,
-                                                 self.proxy_port), 5)
+                sock = socket.create_connection(
+                    (self.proxy_host, self.proxy_port),
+                    5
+                )
             else:
                 sock = socket.create_connection((self.host, self.port), 5)
             proto = None
@@ -179,7 +185,8 @@ class HTTP11Connection(object):
         # Append proxy headers.
         if self.proxy_host and not self.secure:
             headers.update(
-                self._headers_to_http_header_map(self.proxy_headers).items())
+                self._headers_to_http_header_map(self.proxy_headers).items()
+            )
 
         if self._sock is None:
             self.connect()

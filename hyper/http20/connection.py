@@ -373,13 +373,18 @@ class HTTP20Connection(object):
 
             if self.proxy_host and self.secure:
                 # Send http CONNECT method to a proxy and acquire the socket
-                sock = _create_tunnel(self.proxy_host, self.proxy_port,
-                                      self.host, self.port,
-                                      proxy_headers=self.proxy_headers)
+                sock = _create_tunnel(
+                    self.proxy_host,
+                    self.proxy_port,
+                    self.host,
+                    self.port,
+                    proxy_headers=self.proxy_headers
+                )
             elif self.proxy_host:
                 # Simple http proxy
-                sock = socket.create_connection((self.proxy_host,
-                                                 self.proxy_port))
+                sock = socket.create_connection(
+                    (self.proxy_host, self.proxy_port)
+                )
             else:
                 sock = socket.create_connection((self.host, self.port))
 
