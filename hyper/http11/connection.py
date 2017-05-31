@@ -86,6 +86,8 @@ class HTTP11Connection(object):
         port 443.
     :param ssl_context: (optional) A class with custom certificate settings.
         If not provided then hyper's default ``SSLContext`` is used instead.
+    :param timeout: (optional) How long to wait for the server to send
+        data before giving up, as a float.
     :param proxy_host: (optional) The proxy to connect to.  This can be an IP
         address or a host name and may include a port.
     :param proxy_port: (optional) The proxy port to connect to. If not provided
@@ -98,6 +100,7 @@ class HTTP11Connection(object):
 
     def __init__(self, host, port=None, secure=None, ssl_context=None,
                  proxy_host=None, proxy_port=None, proxy_headers=None,
+                 timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
                  **kwargs):
         if port is None:
             self.host, self.port = to_host_port_tuple(host, default_port=80)
@@ -119,6 +122,7 @@ class HTTP11Connection(object):
         self._enable_push = kwargs.get('enable_push')
 
         self.ssl_context = ssl_context
+        self._socket_timeout = timeout
         self._sock = None
 
         # Keep the current request method in order to be able to know
@@ -172,7 +176,8 @@ class HTTP11Connection(object):
                     5
                 )
             else:
-                sock = socket.create_connection((self.host, self.port), 5)
+                sock = socket.create_connection((self.host, self.port),
+                                                timeout=self._socket_timeout)
             proto = None
 
             if self.secure:
