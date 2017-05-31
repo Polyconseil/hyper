@@ -381,7 +381,8 @@ class HTTP20Connection(object):
                     self.proxy_port,
                     self.host,
                     self.port,
-                    proxy_headers=self.proxy_headers
+                    proxy_headers=self.proxy_headers,
+                    timeout=self._socket_timeout
                 )
             elif self.proxy_host:
                 # Simple http proxy

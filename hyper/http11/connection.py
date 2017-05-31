@@ -39,14 +39,14 @@ BODY_FLAT = 2
 
 
 def _create_tunnel(proxy_host, proxy_port, target_host, target_port,
-                   proxy_headers=None):
+                   proxy_headers=None, timeout=socket._GLOBAL_DEFAULT_TIMEOUT):
     """
     Sends CONNECT method to a proxy and returns a socket with established
     connection to the target.
 
     :returns: socket
     """
-    conn = HTTP11Connection(proxy_host, proxy_port)
+    conn = HTTP11Connection(proxy_host, proxy_port, timeout=timeout)
     conn.request('CONNECT', '%s:%d' % (target_host, target_port),
                  headers=proxy_headers)
 
@@ -167,7 +167,8 @@ class HTTP11Connection(object):
                     self.proxy_port,
                     self.host,
                     self.port,
-                    proxy_headers=self.proxy_headers
+                    proxy_headers=self.proxy_headers,
+                    timeout=self._socket_timeout
                 )
             elif self.proxy_host:
                 # Simple http proxy
