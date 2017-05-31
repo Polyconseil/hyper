@@ -87,6 +87,8 @@ class HTTP20Connection(object):
         :meth:`get_pushes() <hyper.HTTP20Connection.get_pushes>`).
     :param ssl_context: (optional) A class with custom certificate settings.
         If not provided then hyper's default ``SSLContext`` is used instead.
+    :param timeout: (optional) How long to wait for the server to send
+        data before giving up, as a float.
     :param proxy_host: (optional) The proxy to connect to.  This can be an IP
         address or a host name and may include a port.
     :param proxy_port: (optional) The proxy port to connect to. If not provided
@@ -97,8 +99,9 @@ class HTTP20Connection(object):
     version = HTTPVersion.http20
 
     def __init__(self, host, port=None, secure=None, window_manager=None,
-                 enable_push=False, ssl_context=None, proxy_host=None,
-                 proxy_port=None, force_proto=None, **kwargs):
+                 enable_push=False, ssl_context=None,
+                 timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
+                 proxy_host=None, proxy_port=None, force_proto=None, **kwargs):
         """
         Creates an HTTP/2 connection to a specific server.
         """
@@ -116,6 +119,7 @@ class HTTP20Connection(object):
 
         self._enable_push = enable_push
         self.ssl_context = ssl_context
+        self._socket_timeout = timeout
 
         # Setup proxy details if applicable.
         if proxy_host:
@@ -365,7 +369,8 @@ class HTTP20Connection(object):
                 host = self.proxy_host
                 port = self.proxy_port
 
-            sock = socket.create_connection((host, port))
+            sock = socket.create_connection((host, port),
+                                            timeout=self._socket_timeout)
 
             if self.secure:
                 assert not self.proxy_host, "Proxy with HTTPS not supported."

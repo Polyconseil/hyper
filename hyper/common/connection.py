@@ -10,6 +10,8 @@ from ..http11.connection import HTTP11Connection
 from ..http20.connection import HTTP20Connection
 from ..tls import H2_NPN_PROTOCOLS, H2C_PROTOCOL
 
+import socket
+
 
 class HTTPConnection(object):
     """
@@ -41,6 +43,8 @@ class HTTPConnection(object):
         :meth:`get_pushes() <hyper.HTTP20Connection.get_pushes>`).
     :param ssl_context: (optional) A class with custom certificate settings.
         If not provided then hyper's default ``SSLContext`` is used instead.
+    :param timeout: (optional) How long to wait for the server to send
+        data before giving up, as a float.
     :param proxy_host: (optional) The proxy to connect to.  This can be an IP
         address or a host name and may include a port.
     :param proxy_port: (optional) The proxy port to connect to. If not provided
@@ -54,6 +58,7 @@ class HTTPConnection(object):
                  window_manager=None,
                  enable_push=False,
                  ssl_context=None,
+                 timeout=socket._GLOBAL_DEFAULT_TIMEOUT,
                  proxy_host=None,
                  proxy_port=None,
                  **kwargs):
@@ -62,13 +67,14 @@ class HTTPConnection(object):
         self._port = port
         self._h1_kwargs = {
             'secure': secure, 'ssl_context': ssl_context,
-            'proxy_host': proxy_host, 'proxy_port': proxy_port,
-            'enable_push': enable_push
+            'timeout': timeout, 'proxy_host': proxy_host,
+            'proxy_port': proxy_port, 'enable_push': enable_push
         }
         self._h2_kwargs = {
             'window_manager': window_manager, 'enable_push': enable_push,
             'secure': secure, 'ssl_context': ssl_context,
-            'proxy_host': proxy_host, 'proxy_port': proxy_port
+            'timeout': timeout, 'proxy_host': proxy_host,
+            'proxy_port': proxy_port
         }
 
         # Add any unexpected kwargs to both dictionaries.
