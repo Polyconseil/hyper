@@ -386,7 +386,8 @@ class HTTP20Connection(object):
             elif self.proxy_host:
                 # Simple http proxy
                 sock = socket.create_connection(
-                    (self.proxy_host, self.proxy_port)
+                    (self.proxy_host, self.proxy_port),
+                    timeout=self._socket_timeout
                 )
             else:
                 sock = socket.create_connection((self.host, self.port),

@@ -173,7 +173,7 @@ class HTTP11Connection(object):
                 # Simple http proxy
                 sock = socket.create_connection(
                     (self.proxy_host, self.proxy_port),
-                    5
+                    timeout=self._socket_timeout
                 )
             else:
                 sock = socket.create_connection((self.host, self.port),
